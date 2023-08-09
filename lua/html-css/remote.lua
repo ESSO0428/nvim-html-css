@@ -28,6 +28,10 @@ local get_remote_styles = a.wrap(function(url, cb)
 		callback = function(res)
 			cb(res.status, res.body)
 		end,
+		on_error = function(err)
+      			print("[html-css] Unable to connect to the URL:", url)
+    		end,
+
 	})
 end, 2)
 
