@@ -45,7 +45,7 @@ return require("lazy").setup({
             },
         },
     },
-    { "Jezda1337/nvim-html-css",
+    { "ESSO0428/nvim-html-css",
         dependencies = {
             "nvim-treesitter/nvim-treesitter",
             "nvim-lua/plenary.nvim"
