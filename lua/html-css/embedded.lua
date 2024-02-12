@@ -125,7 +125,8 @@ M.read_html_files = a.wrap(function(cb)
     end
   end
   -- local unique_list = u.unique_list(unique_class)
-  local unique_list, unique_block_list = u.unique_list_with_sync(unique_class, unique_class_rule_set)
+  -- local unique_list, unique_block_list = u.unique_list_with_sync(unique_class, unique_class_rule_set)
+  local unique_list, unique_block_list = unique_class, unique_class_rule_set
   for _, class in ipairs(unique_list) do
     table.insert(classes, {
       label = class,
@@ -142,7 +143,8 @@ M.read_html_files = a.wrap(function(cb)
     })
   end
   -- local unique_ids_list = u.unique_list(unique_ids)
-  unique_list, unique_block_list = u.unique_list_with_sync(unique_ids, unique_ids_rule_set)
+  -- unique_list, unique_block_list = u.unique_list_with_sync(unique_ids, unique_ids_rule_set)
+  unique_list, unique_block_list = unique_ids, unique_ids_rule_set
   for _, id in ipairs(unique_list) do
     table.insert(ids, {
       label = id,
