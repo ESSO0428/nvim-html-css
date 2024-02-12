@@ -1,59 +1,47 @@
-local M = { links = {} }
-local J = require("plenary.job")
-local A = require("plenary.async")
-
 local ts = vim.treesitter
 local isRemote = "^https?://"
 
 local qs = [[
-(attribute
-	(attribute_name) @att_name (#eq? @att_name "href")
-	(quoted_attribute_value
-		(attribute_value) @att_val))
+(element
+    (start_tag
+        (tag_name) @tag_name
+        (attribute
+            (attribute_name) @att_name (#eq? @att_name "href")
+            (quoted_attribute_value
+                (attribute_value) @att_val)))
+    (#eq? @tag_name "link"))
 ]]
 
+local M = { links = {} }
+
 M.get_hrefs = function()
-	local files = J:new({
-		command = "fd",
-		args = { "-a", "-e", "html", "--exclude", "node_modules" },
-	}):sync()
+  M.links = {} -- clear the links
 
-	if #files == 0 then
-		return {}
-	else
-		for _, file in ipairs(files) do
-			local fd = io.open(file, "r")
-			if fd == nil then
-				return
-			end
-			local data = fd:read("*a")
-			fd:close()
+  -- get the current buffer content
+  local bufnr = vim.api.nvim_get_current_buf()
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local name = vim.api.nvim_buf_get_name(bufnr)
+  local data = table.concat(lines, "\n")
 
-			-- reading html files
-			-- local _, fd = A.uv.fs_open(file, "r", 438)
-			-- local _, stat = A.uv.fs_fstat(fd)
-			-- local _, data = A.uv.fs_read(fd, stat.size, 0)
-			-- A.uv.fs_close(fd)
+  -- use Treesitter to parse the current buffer content
+  local parser = vim.treesitter.get_string_parser(data, "html")
+  local tree = parser:parse()[1]
+  local root = tree:root()
+  local href_query = vim.treesitter.query.parse("html", qs)
 
-			-- html parser for href links
-			local html_parser = ts.get_string_parser(data, "html")
-			local html_tree = html_parser:parse()[1]
-			local html_root = html_tree:root()
-			local href_query = ts.query.parse("html", qs)
-
-			for _, matches, _ in href_query:iter_matches(html_root, data, 0, 0, {}) do
-				for _, node in pairs(matches) do
-					if node:type() == "attribute_value" then
-						local href_value = ts.get_node_text(node, data)
-						if href_value:match(isRemote) then
-							table.insert(M.links, href_value)
-						end
-					end
-				end
-			end
-		end
-	end
-	return M.links
+  -- run the query to find all href attributes
+  for _, matches, _ in href_query:iter_matches(root, bufnr, 0, #lines) do
+    for _, node in pairs(matches) do
+      local nodeType = node:type()
+      if nodeType == "attribute_value" or nodeType == "quoted_attribute_value" then
+        local href_value = vim.treesitter.get_node_text(node, bufnr)
+        -- if href_value:match(isRemote) then
+        table.insert(M.links, href_value)
+        -- end
+      end
+    end
+  end
+  return M.links
 end
 
 return M
