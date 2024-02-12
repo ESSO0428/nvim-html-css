@@ -23,8 +23,6 @@ Neovim CSS Intellisense for HTML
 
 ## 📦 Installation
 
-##### ⚠️ Currently, the plugin only works in projects that contain a .git folder, in case your project is not initialized using git, you can create a .git folder to use the plugin, this is only temporary.
-
 ##### ⚠️ In case your tree-sitter is lazy loaded, you must also lazy load the html-css plugin in the same way as the tree-sitter. Another way is to add dependencies as in the example below.
 
 ## Lazy
@@ -49,10 +47,7 @@ return require("lazy").setup({
         dependencies = {
             "nvim-treesitter/nvim-treesitter",
             "nvim-lua/plenary.nvim"
-        },
-        config = function()
-            require("html-css"):setup()
-        end
+        }
     }
 })
 ```
