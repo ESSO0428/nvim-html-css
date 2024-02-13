@@ -1,3 +1,4 @@
+local u = require("html-css.utils.init")
 local ts = vim.treesitter
 local isRemote = "^https?://"
 
@@ -41,6 +42,8 @@ M.get_hrefs = function()
       end
     end
   end
+  M.links = u.unique_list(M.links)
+
   return M.links
 end
 
