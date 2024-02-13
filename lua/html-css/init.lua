@@ -73,8 +73,6 @@ function source:update_completion_data()
   -- merge links together
   self.style_sheets = mrgtbls(self.style_sheets, self.href_links)
 
-  -- comment below is for embedded styles reading functionality
-  -- Because I don't understand when to use them
   -- handle embedded styles
   a.run(function()
     e.read_html_files(function(classes, ids)
@@ -124,8 +122,8 @@ function source:complete(_, callback)
     -- merge lings together
     self.style_sheets = mrgtbls(self.style_sheets, self.href_links)
 
-    -- comment below is for embedded styles reading functionality
-    -- Because I don't understand when to use them
+
+
     -- handle embedded styles
     a.run(function()
       e.read_html_files(function(classes, ids)
