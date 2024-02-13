@@ -37,15 +37,18 @@ local qs = [[
 ]]
 
 local function extract_styles(data, style_query, root)
-  local styles = nil -- 初始化styles为nil，这样可以在没有找到匹配时返回nil
-  -- 遍历匹配的<style>标签，提取CSS内容
+  local tb_styles = {}
+  local styles = nil
+
+  -- Traverse the matched <style> tags and extract the CSS content
   for id, node in style_query:iter_captures(root, data, 0, -1) do
     if node:type() == "raw_text" then
       local raw_text = ts.get_node_text(node, data)
-      styles = raw_text
-      break -- 假设我们只关心第一个匹配的<style>标签
+      -- styles = raw_text
+      table.insert(tb_styles, raw_text)
     end
   end
+  styles = table.concat(tb_styles, "\n")
   return styles
 end
 local function extract_styles_from_html(data)
@@ -56,10 +59,11 @@ local function extract_styles_from_html(data)
 
   local status, styles = pcall(extract_styles, data, style_query, root)
   if not status then
-    return data -- 失败时返回原始data
+    -- failed to extract styles, return the original data
+    return data
   end
-
-  return styles or data -- 如果styles为nil，则返回data
+  -- if styles is nil, return data
+  return styles or data
 end
 
 local function deindent(text)
