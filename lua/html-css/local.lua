@@ -16,17 +16,32 @@ local unique_ids = {}
 local unique_ids_rule_set = {}
 
 -- treesitter query for extracting css clasess
-local qs = [[
-  (rule_set
-    (selectors
-      (id_selector
-        (id_name)@id_name)))@id_block
-  (rule_set
-    (selectors
-      (class_selector
-        (class_name)@class_name)))@class_block
+local rule_set_qs = [[
+  (rule_set) @rule
 ]]
 
+local qs = [[
+	(id_selector
+		(id_name)@id_name)
+	(class_selector
+		(class_name)@class_name)
+]]
+
+
+local function extract_rule_sets(data, rule_set_qs)
+  local parser = ts.get_string_parser(data, "css")
+  local tree = parser:parse()[1]
+  local root = tree:root()
+  local query = ts.query.parse("css", rule_set_qs)
+  local rule_sets = {}
+
+  for id, node in query:iter_captures(root, 0, 0, -1) do
+    local rule_text = ts.get_node_text(node, data)
+    table.insert(rule_sets, rule_text)
+  end
+
+  return rule_sets
+end
 
 local function deindent(text)
   local indent = string.match(text, '^%s*')
@@ -82,35 +97,32 @@ M.read_local_files = a.wrap(function(hrefs, cb)
       -- local _, data = a.uv.fs_read(fd, stat.size, 0)
       -- a.uv.fs_close(fd)
 
+      local rule_sets = extract_rule_sets(data, rule_set_qs)
+
       unique_class = {}
       unique_class_rule_set = {}
       unique_ids = {}
       unique_ids_rule_set = {}
 
-      local parser = ts.get_string_parser(data, "css")
-      local tree = parser:parse()[1]
-      local root = tree:root()
-      local query = ts.query.parse("css", qs)
+      for _, rule in ipairs(rule_sets) do
+        local parser = ts.get_string_parser(rule, "css")
+        local tree = parser:parse()[1]
+        local root = tree:root()
+        local query = ts.query.parse("css", qs)
 
-      for _, matches, _ in query:iter_matches(root, data, 0, 0, {}) do
-        local last_chid_node = ''
-        for _, node in pairs(matches) do
-          if node:type() == "id_name" then
-            last_chid_node = node:type()
-            local id_name = ts.get_node_text(node, data)
-            table.insert(unique_ids, id_name)
-          elseif node:type() == "class_name" then
-            last_chid_node = node:type()
-            local class_name = ts.get_node_text(node, data)
-            table.insert(unique_class, class_name)
-          end
-          if node:type() == "rule_set" then
-            if last_chid_node == "id_name" then
-              local id_block = ts.get_node_text(node, data)
-              table.insert(unique_ids_rule_set, id_block)
-            elseif last_chid_node == "class_name" then
-              local class_block = ts.get_node_text(node, data)
-              table.insert(unique_class_rule_set, class_block)
+        for _, matches, _ in query:iter_matches(root, rule, 0, 0, {}) do
+          local last_chid_node = ''
+          for _, node in pairs(matches) do
+            if node:type() == "id_name" then
+              last_chid_node = node:type()
+              local id_name = ts.get_node_text(node, rule)
+              table.insert(unique_ids, id_name)
+              table.insert(unique_ids_rule_set, rule)
+            elseif node:type() == "class_name" then
+              last_chid_node = node:type()
+              local class_name = ts.get_node_text(node, rule)
+              table.insert(unique_class, class_name)
+              table.insert(unique_class_rule_set, rule)
             end
           end
         end
