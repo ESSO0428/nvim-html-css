@@ -84,18 +84,22 @@ function source:update_completion_data()
   end)
 
   -- Remote css reading
-  for _, url in ipairs(self.style_sheets) do
-    if url:match(self.isRemote) then
-      a.run(function()
-        r.init(url, function(classes)
-          for _, class in ipairs(classes) do
-            table.insert(self.remote_classes, class)
-          end
-        end)
-      end)
+  a.run(function()
+    if self.embedded == 'done' then
+      for _, url in ipairs(self.style_sheets) do
+        if url:match(self.isRemote) then
+          a.run(function()
+            r.init(url, function(classes)
+              for _, class in ipairs(classes) do
+                table.insert(self.remote_classes, class)
+              end
+            end)
+          end)
+        end
+        self.remote = 'done'
+      end
     end
-    self.remote = 'done'
-  end
+  end)
 
   -- Local css reading
   a.run(function()
