@@ -194,49 +194,80 @@ M.read_html_files = a.wrap(function(cb)
       file_name = u.get_file_name(file, "[^/]+$")
       status, data = pcall(read_file, file)
       if status then
-        local parser = ts.get_string_parser(data, "html")
-        local tree = parser:parse()[1]
-        local root = tree:root()
-        local href_query = ts.query.parse("html", link_qs)
-        -- run the query to find all href attributes
-        for _, matches, _ in href_query:iter_matches(root, data, 0, 0, {}) do
-          for _, node in pairs(matches) do
-            local nodeType = node:type()
-            if nodeType == "attribute_value" or nodeType == "quoted_attribute_value" then
-              local href_value = ts.get_node_text(node, data)
-              -- if href_value:match(isRemote) then
-              table.insert(M.links, href_value)
-              -- end
+        local success, parser_or_error = pcall(ts.get_string_parser, data, "html")
+        if success then
+          local parser = parser_or_error
+          local tree = parser:parse()[1]
+          local root = tree:root()
+
+          local success, href_query_or_error = pcall(ts.query.parse, "html", link_qs)
+          if success then
+            local href_query = href_query_or_error
+            -- run the query to find all href attributes
+            for _, matches, _ in href_query:iter_matches(root, data, 0, -1) do
+              for _, node in pairs(matches) do
+                local nodeType = node:type()
+                if nodeType == "attribute_value" or nodeType == "quoted_attribute_value" then
+                  local href_value, get_node_text_error = ts.get_node_text(node, data)
+                  if href_value then
+                    -- if href_value:match(isRemote) then
+                    table.insert(M.links, href_value)
+                    -- end
+                  else
+                    -- Handle the error if ts.get_node_text failed
+                    print("Error getting node text:", get_node_text_error)
+                  end
+                end
+              end
             end
+          else
+            -- Handle the error if ts.query.parse failed
+            print("Error parsing href query:", href_query_or_error)
           end
+        else
+          -- Handle the error if ts.get_string_parser failed
+          print("Error creating parser:", parser_or_error)
         end
       end
     end
     if status then
-      local styles = extract_styles_from_html(data)
-      local rule_sets = extract_rule_sets(styles, rule_set_qs)
+      local success, styles = pcall(extract_styles_from_html, data)
+      if success then
+        local success, rule_sets = pcall(extract_rule_sets, styles, rule_set_qs)
+        if success then
+          for _, rule in ipairs(rule_sets) do
+            local parser = ts.get_string_parser(rule, "css")
+            local tree = parser:parse()[1]
+            local root = tree:root()
+            local query = ts.query.parse("css", qs)
 
-      for _, rule in ipairs(rule_sets) do
-        local parser = ts.get_string_parser(rule, "css")
-        local tree = parser:parse()[1]
-        local root = tree:root()
-        local query = ts.query.parse("css", qs)
-
-        for _, matches, _ in query:iter_matches(root, rule, 0, 0, {}) do
-          local last_chid_node = ''
-          for _, node in pairs(matches) do
-            if node:type() == "id_name" then
-              last_chid_node = node:type()
-              local id_name = ts.get_node_text(node, rule)
-              table.insert(unique_ids, id_name)
-              table.insert(unique_ids_rule_set, rule)
-              table.insert(unique_ids_filename, file_name)
-            elseif node:type() == "class_name" then
-              last_chid_node = node:type()
-              local class_name = ts.get_node_text(node, rule)
-              table.insert(unique_class, class_name)
-              table.insert(unique_class_rule_set, rule)
-              table.insert(unique_class_filename, file_name)
+            for _, matches, _ in query:iter_matches(root, rule, 0, 0, {}) do
+              local last_chid_node = ''
+              for _, node in pairs(matches) do
+                if node:type() == "id_name" then
+                  last_chid_node = node:type()
+                  local id_name, get_node_text_error = ts.get_node_text(node, rule)
+                  if id_name then
+                    table.insert(unique_ids, id_name)
+                    table.insert(unique_ids_rule_set, rule)
+                    table.insert(unique_ids_filename, file_name)
+                  else
+                    -- Handle the error if ts.get_node_text failed
+                    print("Error getting node text:", get_node_text_error)
+                  end
+                elseif node:type() == "class_name" then
+                  last_chid_node = node:type()
+                  local class_name, get_node_text_error = ts.get_node_text(node, rule)
+                  if class_name then
+                    table.insert(unique_class, class_name)
+                    table.insert(unique_class_rule_set, rule)
+                    table.insert(unique_class_filename, file_name)
+                  else
+                    -- Handle the error if ts.get_node_text failed
+                    print("Error getting node text:", get_node_text_error)
+                  end
+                end
+              end
             end
           end
         end
