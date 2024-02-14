@@ -6,6 +6,7 @@ local r = require("html-css.remote")
 local l = require("html-css.local")
 local e = require("html-css.embedded")
 local h = require("html-css.hrefs")
+local u = require("html-css.utils.init")
 
 local ts = vim.treesitter
 
@@ -69,13 +70,15 @@ function source:update_completion_data()
 
   -- handle embedded styles
   a.run(function()
-    e.read_html_files(function(classes, ids)
+    e.read_html_files(function(classes, ids, links)
       for _, class in ipairs(classes) do
         table.insert(self.items, class)
       end
       for _, id in ipairs(ids) do
         table.insert(self.ids, id)
       end
+      self.style_sheets = mrgtbls(self.style_sheets, links)
+      self.style_sheets = u.unique_list(self.style_sheets)
     end)
     self.embedded = 'done'
   end)
