@@ -25,17 +25,17 @@ M.get_hrefs = function()
   local data = table.concat(lines, "\n")
 
   -- use Treesitter to parse the current buffer content
-  local parser = vim.treesitter.get_string_parser(data, "html")
+  local parser = ts.get_string_parser(data, "html")
   local tree = parser:parse()[1]
   local root = tree:root()
-  local href_query = vim.treesitter.query.parse("html", qs)
+  local href_query = ts.query.parse("html", qs)
 
   -- run the query to find all href attributes
   for _, matches, _ in href_query:iter_matches(root, bufnr, 0, #lines) do
     for _, node in pairs(matches) do
       local nodeType = node:type()
       if nodeType == "attribute_value" or nodeType == "quoted_attribute_value" then
-        local href_value = vim.treesitter.get_node_text(node, bufnr)
+        local href_value = ts.get_node_text(node, bufnr)
         -- if href_value:match(isRemote) then
         table.insert(M.links, href_value)
         -- end
