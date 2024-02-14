@@ -23,27 +23,37 @@ function M.unique_list(tbl)
   return result
 end
 
----@param tbl1 table<number, any> The first table to process for uniqueness.
----@param tbl2 table<number, any> The second table to synchronize with the first table's unique list.
----@return table<number, any>, table<number, any> The first return value is the unique list derived from tbl1,
-function M.unique_list_with_sync(tbl1, tbl2)
+--- Returns unique elements from the first table and corresponding elements from subsequent tables.
+-- @param ... Variable number of tables. The first table is used to determine uniqueness,
+--            and subsequent tables must be synchronized with the first table in length and order.
+-- @return Multiple tables. The first returned table contains unique elements from the first input table,
+--         and each subsequent table contains elements corresponding to the unique elements' positions
+--         from their respective input tables.
+function M.unique_list_with_sync(...)
   local seen = {}
-  local result_tbl1 = {}
-  local result_tbl2 = {}
+  local result_tbls = {}
+  local args = { ... }
 
-  for i, value in ipairs(tbl1) do
+  -- Initialize result tables for each input table
+  for i = 1, #args do
+    result_tbls[i] = {}
+  end
+
+  for i, value in ipairs(args[1]) do
     if not seen[value] then
       seen[value] = true
-      table.insert(result_tbl1, value)
-      -- befacause tbl1 and tbl2 are in sync, we also insert elements from tbl2 accordingly
-      -- this assumes that tbl2 is consistent with tbl1 in length and order
-      if tbl2[i] then
-        table.insert(result_tbl2, tbl2[i])
+      -- Insert unique value from the first table
+      table.insert(result_tbls[1], value)
+      -- Insert corresponding elements from other tables
+      for j = 2, #args do
+        if args[j][i] then
+          table.insert(result_tbls[j], args[j][i])
+        end
       end
     end
   end
 
-  return result_tbl1, result_tbl2
+  return table.unpack(result_tbls)
 end
 
 return M
