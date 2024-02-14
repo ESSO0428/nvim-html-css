@@ -16,8 +16,10 @@ local ids = {}
 ---@type string[]
 local unique_class = {}
 local unique_class_rule_set = {}
+local unique_class_filename = {}
 local unique_ids = {}
 local unique_ids_rule_set = {}
+local unique_ids_filename = {}
 
 -- treesitter query for extracting css clasess
 local htmldjango_extends_qs = [[
@@ -150,35 +152,36 @@ M.read_html_files = a.wrap(function(cb)
 
   local file, data = get_current_buffer_content_as_string()
   local file_name = u.get_file_name(file, "[^/]+$")
-  file_name = table.concat({ "", file_name }, " ")
+  local file_name = table.concat({ "", file_name }, " ")
 
   local tb_extend_links = get_extends_template(data, htmldjango_extends_qs)
-  local files = {}
-  files = {
+  local files = {
     { file_name, data }
   }
 
-  -- FIX: have some bug and so slow
-  -- for _, v in ipairs(tb_extend_links) do
-  --   table.insert(files, v)
-  -- end
+  -- WARNING: new feature, need to test
+  for _, v in ipairs(tb_extend_links) do
+    table.insert(files, v)
+  end
 
   unique_class = {}
   unique_class_rule_set = {}
+  unique_class_filename = {}
   unique_ids = {}
   unique_ids_rule_set = {}
-
+  unique_ids_filename = {}
   for _, file in ipairs(files) do
     local status = true
+    local file_name
+    local data
     if _ == 1 then
-      local file_name = file[1]
-      local data = file[2]
+      file_name = file[1]
+      data = file[2]
     else
       local current_file_path = vim.fn.expand('%:p:h')
-      local file = current_file_path .. "/" .. file
-      local file_name = u.get_file_name(file, "[^/]+$")
-      local data
-      data = pcall(read_file, file)
+      file = current_file_path .. "/" .. file
+      file_name = u.get_file_name(file, "[^/]+$")
+      status, data = pcall(read_file, file)
     end
     if status then
       local styles = extract_styles_from_html(data)
@@ -198,11 +201,13 @@ M.read_html_files = a.wrap(function(cb)
               local id_name = ts.get_node_text(node, rule)
               table.insert(unique_ids, id_name)
               table.insert(unique_ids_rule_set, rule)
+              table.insert(unique_ids_filename, file_name)
             elseif node:type() == "class_name" then
               last_chid_node = node:type()
               local class_name = ts.get_node_text(node, rule)
               table.insert(unique_class, class_name)
               table.insert(unique_class_rule_set, rule)
+              table.insert(unique_class_filename, file_name)
             end
           end
         end
@@ -212,8 +217,11 @@ M.read_html_files = a.wrap(function(cb)
 
   -- local unique_list = u.unique_list(unique_class)
   -- local unique_list, unique_block_list = u.unique_list_with_sync(unique_class, unique_class_rule_set)
-  local unique_list, unique_block_list = unique_class, unique_class_rule_set
+  -- local unique_list, unique_block_list, unique_filename_list = u.unique_list_with_sync(unique_class,
+  -- unique_class_rule_set, unique_class_filename)
+  local unique_list, unique_block_list, unique_filename_list = unique_class, unique_class_rule_set, unique_class_filename
   for _, class in ipairs(unique_list) do
+    file_name = unique_filename_list[_]
     table.insert(classes, {
       label = class,
       kind = cmp.lsp.CompletionItemKind.Enum,
@@ -230,8 +238,11 @@ M.read_html_files = a.wrap(function(cb)
   end
   -- local unique_ids_list = u.unique_list(unique_ids)
   -- unique_list, unique_block_list = u.unique_list_with_sync(unique_ids, unique_ids_rule_set)
-  unique_list, unique_block_list = unique_ids, unique_ids_rule_set
+  -- unique_list, unique_block_list, unique_filename_list = u.unique_list_with_sync(unique_ids, unique_ids_rule_set,
+  --   unique_ids_filename)
+  unique_list, unique_block_list, unique_filename_list = unique_ids, unique_ids_rule_set, unique_ids_filename
   for _, id in ipairs(unique_list) do
+    file_name = unique_filename_list[_]
     table.insert(ids, {
       label = id,
       kind = cmp.lsp.CompletionItemKind.Enum,
