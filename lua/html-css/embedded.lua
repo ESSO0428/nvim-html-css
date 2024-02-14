@@ -44,6 +44,17 @@ local qs = [[
 		(class_name)@class_name)
 ]]
 
+local link_qs = [[
+(element
+    (start_tag
+        (tag_name) @tag_name
+        (attribute
+            (attribute_name) @att_name (#eq? @att_name "href")
+            (quoted_attribute_value
+                (attribute_value) @att_val)))
+    (#eq? @tag_name "link"))
+]]
+
 local function get_extends_template(data, htmldjango_extends_qs)
   local parser = ts.get_string_parser(data, "htmldjango")
   local tree = parser:parse()[1]
@@ -182,6 +193,24 @@ M.read_html_files = a.wrap(function(cb)
       file = current_file_path .. "/" .. file
       file_name = u.get_file_name(file, "[^/]+$")
       status, data = pcall(read_file, file)
+      if status then
+        local parser = ts.get_string_parser(data, "html")
+        local tree = parser:parse()[1]
+        local root = tree:root()
+        local href_query = ts.query.parse("html", link_qs)
+        -- run the query to find all href attributes
+        for _, matches, _ in href_query:iter_matches(root, data, 0, 0, {}) do
+          for _, node in pairs(matches) do
+            local nodeType = node:type()
+            if nodeType == "attribute_value" or nodeType == "quoted_attribute_value" then
+              local href_value = ts.get_node_text(node, data)
+              -- if href_value:match(isRemote) then
+              table.insert(M.links, href_value)
+              -- end
+            end
+          end
+        end
+      end
     end
     if status then
       local styles = extract_styles_from_html(data)
@@ -257,7 +286,9 @@ M.read_html_files = a.wrap(function(cb)
       }
     })
   end
-  cb(classes, ids)
+  M.links = u.unique_list(M.links)
+
+  cb(classes, ids, M.links)
 end, 1)
 
 return M
