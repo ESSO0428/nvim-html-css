@@ -25,6 +25,10 @@ source.new = function()
   self.ids = {}
   self.href_links = {}
 
+  self.embedded = ''
+  self.remote = ''
+  self.local_file = ''
+
   -- reading user config
   self.user_config = config.get_source_config(self.source_name) or {}
   self.option = self.user_config.option or {}
@@ -46,21 +50,7 @@ source.new = function()
       self:update_completion_data()
     end,
   })
-  vim.api.nvim_create_autocmd('BufLeave', {
-    group = augroup,
-    callback = function()
-      self:clear_completion_data()
-    end,
-  })
   return self
-end
-
-function source:clear_completion_data()
-  self.remote_classes = {}
-  self.items = {}
-  self.ids = {}
-  self.href_links = {}
-  self.style_sheets = {}
 end
 
 function source:update_completion_data()
@@ -69,6 +59,10 @@ function source:update_completion_data()
   self.ids = {}
   self.href_links = h.get_hrefs()
   self.style_sheets = self.option.style_sheets or {}
+
+  self.embedded = ''
+  self.remote = ''
+  self.local_file = ''
 
   -- merge links together
   self.style_sheets = mrgtbls(self.style_sheets, self.href_links)
@@ -83,6 +77,7 @@ function source:update_completion_data()
         table.insert(self.ids, id)
       end
     end)
+    self.embedded = 'done'
   end)
 
   -- Remote css reading
@@ -96,6 +91,7 @@ function source:update_completion_data()
         end)
       end)
     end
+    self.remote = 'done'
   end
 
   -- Local css reading
@@ -112,65 +108,17 @@ function source:update_completion_data()
         table.insert(self.items, class)
       end
     end)
+    self.local_file = 'done'
   end)
 end
 
 function source:complete(_, callback)
-  if next(self.items) == nil and next(self.ids) == nil then
-    self.href_links = h.get_hrefs()
-
-    -- merge lings together
-    self.style_sheets = mrgtbls(self.style_sheets, self.href_links)
-
-
-
-    -- handle embedded styles
-    a.run(function()
-      e.read_html_files(function(classes, ids)
-        for _, class in ipairs(classes) do
-          table.insert(self.items, class)
-        end
-        for _, id in ipairs(ids) do
-          table.insert(self.ids, id)
-        end
-      end)
-    end)
-
-    -- init the remote styles
-    for _, url in ipairs(self.style_sheets) do
-      if url:match(self.isRemote) then
-        a.run(function()
-          r.init(url, function(classes)
-            for _, class in ipairs(classes) do
-              table.insert(self.items, class)
-              table.insert(self.remote_classes, class)
-            end
-          end)
-        end)
-      end
+  if self.embedded == 'done' and self.remote == 'done' and self.local_file == 'done' then
+    if self.current_selector == "class" then
+      callback({ items = self.items, isComplete = false })
+    elseif self.current_selector == "id" then
+      callback({ items = self.ids, isComplete = false })
     end
-
-    a.run(function()
-      -- use self.href_links as an argument to call read_local_files
-      l.read_local_files(self.href_links, function(classes, ids)
-        for _, class in ipairs(classes) do
-          table.insert(self.items, class)
-        end
-        for _, id in ipairs(ids) do
-          table.insert(self.ids, id)
-        end
-
-        -- if self.remote_classes is not empty, then merge it with self.items
-        for _, class in ipairs(self.remote_classes) do
-          table.insert(self.items, class)
-        end
-      end)
-    end)
-  end
-  if self.current_selector == "class" then
-    callback({ items = self.items, isComplete = false })
-  elseif self.current_selector == "id" then
-    callback({ items = self.ids, isComplete = false })
   end
 end
 
