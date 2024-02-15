@@ -17,30 +17,25 @@ local function mrgtbls(t1, t2)
   return t1
 end
 
-local function is_link_tag_changed()
-  -- 這裡使用 Treesitter 查詢來檢查當前是否有 link 標籤的更改
-  local parser = ts.get_parser(0, 'html')
-  local tree = parser:parse()[1]
-  local root = tree:root()
-  local query = ts.query.parse('html', [[
-    (element
-      (start_tag
-        (tag_name) @tag
-        (attribute
-          (attribute_name) @name
-          (quoted_attribute_value) @value))
-      (text) @text)
-  ]])
+local function compare_tables(t1, t2)
+  -- check if the length of the tables are the same
+  if #t1 ~= #t2 then return false end
 
-  for id, node in query:iter_captures(root, 0, 0, -1) do
-    local tag = vim.treesitter.get_node_text(node, 0)
-    if tag == "link" then
-      return true
-    end
+  -- copy and sort the tables to avoid modifying the original data
+  local copy1, copy2 = {}, {}
+  for i, v in ipairs(t1) do table.insert(copy1, v) end
+  for i, v in ipairs(t2) do table.insert(copy2, v) end
+
+  table.sort(copy1)
+  table.sort(copy2)
+
+  -- compare each item
+  for i = 1, #copy1 do
+    if copy1[i] ~= copy2[i] then return false end
   end
-  return false
-end
 
+  return true
+end
 
 source.new = function()
   local self = setmetatable({}, { __index = source })
@@ -113,8 +108,8 @@ source.new = function()
     group = augroup,
     pattern = { '*.html' },
     callback = function()
-      -- if have a function to check if the current edited node is a link tag
-      if is_link_tag_changed() then
+      -- check link href wheather it is changed
+      if not compare_tables(self.href_links, h.get_hrefs()) then
         self.after_inert_before_update = true
       end
     end
