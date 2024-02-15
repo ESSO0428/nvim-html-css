@@ -8,7 +8,8 @@ Neovim CSS Intellisense for HTML/HTMLDJANGO
 
 <br />
 
-![image](https://github.com/Jezda1337/nvim-html-css/assets/42359294/76205c6f-7ab4-42d9-a2e0-6e9120549279)
+![image](https://github.com/ESSO0428/nvim-html-css/assets/92996726/14dd00b3-d11a-4253-8ecb-b30dda714b0d)
+
 
 ## ✨ Features
 
