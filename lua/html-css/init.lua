@@ -60,6 +60,7 @@ source.new = function()
   self.style_sheets = self.option.style_sheets or {}
   self.enable_on = self.option.enable_on or {}
 
+  self.last_html_buffer = ''
   -- self.href_links = h.get_hrefs()
 
   -- merge lings together
@@ -67,10 +68,15 @@ source.new = function()
 
   -- set autocmd to update completion data when file is opened
   local augroup = vim.api.nvim_create_augroup('HTMLCSSCompletionForceUpdate', { clear = true })
-  vim.api.nvim_create_autocmd({ 'WinEnter' }, {
+  vim.api.nvim_create_autocmd({ 'BufEnter' }, {
     group = augroup,
     pattern = { '*.html' },
     callback = function()
+      if self.last_html_buffer == vim.api.nvim_get_current_buf() then
+        return
+      else
+        self.last_html_buffer = vim.api.nvim_get_current_buf()
+      end
       local status = (self.update_done ~= "" and self.update_done) or 'NA'
       print(table.concat({ 'last html-css-completion update status:', status }, " "))
       while not self.update_done == 'update' do
