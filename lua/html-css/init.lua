@@ -67,7 +67,7 @@ source.new = function()
 
   -- set autocmd to update completion data when file is opened
   local augroup = vim.api.nvim_create_augroup('HTMLCSSCompletionForceUpdate', { clear = true })
-  vim.api.nvim_create_autocmd({ 'TextChanged', 'BufReadPost' }, {
+  vim.api.nvim_create_autocmd({ 'WinEnter' }, {
     group = augroup,
     pattern = { '*.html' },
     callback = function()
