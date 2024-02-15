@@ -2,7 +2,7 @@
 
 ## 🚧 plugin is in dev mod 🚧
 
-Neovim CSS Intellisense for HTML
+Neovim/HTMLDJANGO CSS Intellisense for HTML
 
 #### HTML `id` and `class` attribute completion for Neovim.
 
