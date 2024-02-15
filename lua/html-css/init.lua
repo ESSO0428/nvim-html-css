@@ -67,10 +67,12 @@ source.new = function()
 
   -- set autocmd to update completion data when file is opened
   local augroup = vim.api.nvim_create_augroup('HTMLCSSCompletionForceUpdate', { clear = true })
-  vim.api.nvim_create_autocmd({ 'BufWinEnter' }, {
+  vim.api.nvim_create_autocmd({ 'WinEnter' }, {
     group = augroup,
     pattern = { '*.html' },
     callback = function()
+      local status = (self.update_done ~= "" and self.update_done) or 'NA'
+      print(table.concat({ 'last html-css-completion update status:', status }, " "))
       while not self.update_done == 'update' do
         a.wait(50)
       end
@@ -143,6 +145,8 @@ function source:update_completion_data(group_type)
     vim.defer_fn(function()
       print("Load html-css completion data ...")
       if not vim.tbl_contains(self.option.enable_on, vim.bo.filetype) then
+        self.update_done = 'done'
+        print("Load html-css completion stop!")
         return
       end
       if group_type == 'condition' and self.after_inert_before_update == false then
