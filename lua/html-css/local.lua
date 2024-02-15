@@ -57,23 +57,34 @@ M.read_local_files = a.wrap(function(hrefs, cb)
   local files = {}
   for _, href in ipairs(hrefs) do
     if not href:match("^http") then
-      j:new({
-        command = "fd",
-        args = { ".", href, "--exclude", "node_modules" },
-        on_stdout = function(_, data)
-          table.insert(files, data)
-        end,
-      }):sync()
-
-      -- use ** pattern search
-      if href:sub(1, 1) == "/" then
+      local status, err = pcall(function()
         j:new({
           command = "fd",
-          args = { "-p", "-g", "**" .. href },
+          args = { ".", href, "--exclude", "node_modules" },
           on_stdout = function(_, data)
             table.insert(files, data)
           end,
+          timeout = 1000
         }):sync()
+      end)
+      if not status then
+        print("Error executing fd command:", err)
+      end
+      -- use ** pattern search
+      if href:sub(1, 1) == "/" then
+        local status, err = pcall(function()
+          j:new({
+            command = "fd",
+            args = { "-p", "-g", "**" .. href },
+            on_stdout = function(_, data)
+              table.insert(files, data)
+            end,
+            timeout = 1000
+          }):sync()
+        end)
+        if not status then
+          print("Error executing fd command:", err)
+        end
       end
     end
   end
