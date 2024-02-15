@@ -12,12 +12,14 @@ Neovim CSS Intellisense for HTML
 
 ## ✨ Features
 
-- HTML `id` and `class` attribute completion.
+- HTML/HTMLDJANGO `id` and `class` attribute completion.
 - Supports `linked` and `embedded` style sheets.
 - Supports additional `style sheets`.
 
 ## ⚡ Required dependencies
 
+- NVIM v0.9.5 or higher
+  - For treesitter support for filetype htmldjango, which can provide link css in extends html template
 - [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
 - [sharkdp/fd](https://github.com/sharkdp/fd) (finder)
 
