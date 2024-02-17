@@ -1,8 +1,6 @@
 -- embedded styles are all styles between <style></style> tags
 -- inside .html files
-local M = {
-  links = {},
-}
+local M = {}
 local j = require("plenary.job")
 local u = require("html-css.utils.init")
 local a = require("plenary.async")
@@ -12,6 +10,7 @@ local ts = vim.treesitter
 ---@type item[]
 local classes = {}
 local ids = {}
+local links = {}
 
 ---@type string[]
 local unique_class = {}
@@ -158,6 +157,7 @@ end
 -- TODO change name of the function to something better
 M.read_html_files = a.wrap(function(cb)
   -- clean tables to avoid duplications
+  links = {}
   classes = {}
   ids = {}
 
@@ -211,7 +211,7 @@ M.read_html_files = a.wrap(function(cb)
                   local href_value, get_node_text_error = ts.get_node_text(node, data)
                   if href_value then
                     -- if href_value:match(isRemote) then
-                    table.insert(M.links, href_value)
+                    table.insert(links, href_value)
                     -- end
                   else
                     -- Handle the error if ts.get_node_text failed
@@ -317,9 +317,9 @@ M.read_html_files = a.wrap(function(cb)
       }
     })
   end
-  M.links = u.unique_list(M.links)
+  links = u.unique_list(links)
 
-  cb(classes, ids, M.links)
+  cb(classes, ids, links)
 end, 1)
 
 return M
