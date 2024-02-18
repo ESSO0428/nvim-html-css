@@ -38,11 +38,28 @@ local function extract_rule_sets(data, rule_set_qs)
 end
 
 local function deindent(text)
-  local indent = string.match(text, '^%s*')
-  if not indent then
-    return text
+  -- First remove the leading whitespace of each line
+  text = text:gsub("[\n\r]+%s*", "\n")
+
+  -- check if there is only one line
+  if not text:find("\n") then
+    -- add a newline after ,
+    text = text:gsub(",%s*", ",\n")
+    -- add a space before { and a newline after
+    text = text:gsub("%s*{%s*", " {\n\t")
+    -- add a newline before }
+    text = text:gsub("%s*}%s*", "\n}")
+    -- add a newline after ;
+    text = text:gsub(";%s*", ";\n\t")
+  else
+    -- For multi-line text, continue to use the original de-indentation logic
+    local indent = string.match(text, "^%s*")
+    if indent then
+      text = string.gsub(string.gsub(text, '^' .. indent, ''), '\n' .. indent, '\n')
+    end
   end
-  return string.gsub(string.gsub(text, '^' .. indent, ''), '\n' .. indent, '\n')
+
+  return text
 end
 
 
