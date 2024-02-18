@@ -42,6 +42,7 @@ source.new = function()
   self.source_name = "html-css"
   self.isRemote = "^https?://"
   self.remote_classes = {}
+  self.remote_ids = {}
   self.items = {}
   self.ids = {}
   self.href_links = {}
@@ -58,6 +59,7 @@ source.new = function()
   self.option = self.user_config.option or {}
   self.file_extensions = self.option.file_extensions or {}
   self.style_sheets = self.option.style_sheets or {}
+  self.remote_style_sheets = {}
   self.enable_on = self.option.enable_on or {}
 
   self.last_html_buffer = ''
@@ -68,7 +70,7 @@ source.new = function()
 
   -- set autocmd to update completion data when file is opened
   local augroup = vim.api.nvim_create_augroup('HTMLCSSCompletionForceUpdate', { clear = true })
-  vim.api.nvim_create_autocmd({ 'BufEnter' }, {
+  vim.api.nvim_create_autocmd({ 'WinEnter' }, {
     group = augroup,
     pattern = { '*.html' },
     callback = function()
@@ -77,8 +79,6 @@ source.new = function()
       else
         self.last_html_buffer = vim.api.nvim_get_current_buf()
       end
-      local status = (self.update_done ~= "" and self.update_done) or 'NA'
-      print(table.concat({ 'last html-css-completion update status:', status }, " "))
       while not self.update_done == 'update' do
         a.wait(50)
       end
@@ -137,7 +137,10 @@ source.new = function()
   return self
 end
 
-function source:check_update_completion()
+local function check_update_completion(self)
+  if self.update_done == 'done' then
+    return
+  end
   if self.embedded and self.remote and self.remote_item_write and self.local_file then
     self.after_inert_before_update = false
     self.update_done = 'done'
@@ -148,8 +151,8 @@ end
 function source:update_completion_data(group_type)
   if group_type ~= 'condition' or self.after_inert_before_update then
     -- Reset flag immediately to prevent multiple triggers
+    print("Load html-css completion data ...")
     vim.defer_fn(function()
-      print("Load html-css completion data ...")
       if not vim.tbl_contains(self.option.enable_on, vim.bo.filetype) then
         self.update_done = 'done'
         print("Load html-css completion stop!")
@@ -163,20 +166,19 @@ function source:update_completion_data(group_type)
         self.remote = ''
         self.remote_item_write = ''
         self.local_file = ''
-        self.remote_classes = {}
+        -- self.remote_classes = {}
+        -- self.remote_ids = {}
         self.items = {}
         self.ids = {}
       end
       self.update_done = 'update'
 
       a.run(function()
-        -- if self.embedded == 'done' and self.update_done == 'update' then
-        --   return
-        -- end
         -- merge links together
         self.href_links = h.get_hrefs()
-        self.style_sheets = self.option.style_sheets or {}
+        -- self.style_sheets = self.option.style_sheets or {}
         self.style_sheets = mrgtbls(self.style_sheets, self.href_links)
+
         -- handle embedded styles
         e.read_html_files(function(classes, ids, links)
           for _, class in ipairs(classes) do
@@ -187,37 +189,66 @@ function source:update_completion_data(group_type)
           end
           self.style_sheets = mrgtbls(self.style_sheets, links)
           self.style_sheets = u.unique_list(self.style_sheets)
-          self.embedded = 'done'
-          self:check_update_completion()
         end)
+        vim.g.html_css_links = vim.inspect(self.style_sheets)
+        self.embedded = 'done'
+        check_update_completion(self)
       end)
 
       -- Remote css reading
       a.run(function()
-        -- if self.remote == 'done' and self.update_done == 'update' then
-        --   return
-        -- end
-        for _, url in ipairs(self.style_sheets) do
-          if url:match(self.isRemote) then
-            a.run(function()
-              r.init(url, function(classes)
-                for _, class in ipairs(classes) do
-                  table.insert(self.remote_classes, class)
-                end
-              end)
+        -- Separate remote style sheet URLs
+        local current_remote_style_sheets = vim.tbl_filter(function(url)
+          return url:match(self.isRemote)
+        end, self.style_sheets)
+
+        -- compare remote style sheets with cached remote style sheets
+        if compare_tables(current_remote_style_sheets, self.remote_style_sheets) then
+          -- use cached classes and ids to update completion items
+          a.util.scheduler()
+          for _, class in ipairs(self.remote_classes) do
+            if not vim.tbl_contains(self.items, class) then
+              table.insert(self.items, class)
+            end
+          end
+          for _, id in ipairs(self.remote_ids) do
+            if not vim.tbl_contains(self.ids, id) then
+              table.insert(self.ids, id)
+            end
+          end
+        else
+          -- clear previous data
+          self.remote_classes = {}
+          self.remote_ids = {}
+          -- update cached remote style sheets
+          self.remote_style_sheets = vim.deepcopy(current_remote_style_sheets)
+
+          -- process each remote style sheet
+          local tasks = {}
+          for _, url in ipairs(current_remote_style_sheets) do
+            a.util.scheduler()
+            r.init(url, function(classes, ids)
+              for _, class in ipairs(classes) do
+                table.insert(self.remote_classes, class)
+                table.insert(self.items, class)
+              end
+              for _, id in ipairs(ids) do
+                table.insert(self.remote_ids, id)
+                table.insert(self.ids, id)
+              end
             end)
           end
         end
+
         self.remote = 'done'
-        self:check_update_completion()
+        self.remote_item_write = 'done'
+        check_update_completion(self)
       end)
 
       -- Local css reading
       a.run(function()
-        -- if self.local_file == 'done' and self.update_done == 'update' then
-        --   return
-        -- end
-        self.local_file = ''
+        -- Yield control to other async tasks
+        a.util.scheduler()
         l.read_local_files(self.style_sheets, function(classes, ids)
           for _, class in ipairs(classes) do
             table.insert(self.items, class)
@@ -226,19 +257,11 @@ function source:update_completion_data(group_type)
             table.insert(self.ids, id)
           end
         end)
+
         self.local_file = 'done'
+        check_update_completion(self)
       end)
-      a.run(function()
-        -- if self.remote_item_write == 'done' or self.remote ~= 'done' then
-        --   return
-        -- end
-        for _, class in ipairs(self.remote_classes) do
-          table.insert(self.items, class)
-        end
-        self.remote_item_write = 'done'
-        self:check_update_completion()
-      end)
-    end, 5000)
+    end, 2500)
   end
 end
 
@@ -253,6 +276,10 @@ function source:complete(_, callback)
 end
 
 function source:is_available()
+  if self.update_done ~= 'done' then
+    return false
+  end
+
   if not next(self.user_config) then
     return false
   end
