@@ -9,6 +9,7 @@ local Path = require("plenary.path")
 
 ---@type table<item>[]
 local classes = {}
+local ids = {}
 
 ---@type string[]
 local unique_class = {}
@@ -118,51 +119,76 @@ M.init = a.wrap(function(url, cb)
 
     -- clean tables to avoid duplications
     classes = {}
+    ids = {}
     unique_class = {}
+    unique_class_rule_set = {}
+    unique_ids = {}
+    unique_ids_rule_set = {}
 
-    for _, rule in ipairs(rule_sets) do
-      local parser = ts.get_string_parser(rule, "css", nil)
-      local tree = parser:parse()[1]
-      local root = tree:root()
-      local query = ts.query.parse("css", qs)
+    a.run(function()
+      for _, rule in ipairs(rule_sets) do
+        a.util.scheduler()
+        local parser = ts.get_string_parser(rule, "css", nil)
+        local tree = parser:parse()[1]
+        local root = tree:root()
+        local query = ts.query.parse("css", qs)
 
-      for _, matches, _ in query:iter_matches(root, rule, 0, 0, {}) do
-        local last_chid_node = ''
-        for _, node in pairs(matches) do
-          if node:type() == "id_name" then
-            last_chid_node = node:type()
-            local id_name = ts.get_node_text(node, rule)
-            table.insert(unique_ids, id_name)
-            table.insert(unique_ids_rule_set, rule)
-          elseif node:type() == "class_name" then
-            last_chid_node = node:type()
-            local class_name = ts.get_node_text(node, rule)
-            table.insert(unique_class, class_name)
-            table.insert(unique_class_rule_set, rule)
+        for _, matches, _ in query:iter_matches(root, rule, 0, 0, {}) do
+          local last_chid_node = ''
+          for _, node in pairs(matches) do
+            if node:type() == "id_name" then
+              last_chid_node = node:type()
+              local id_name = ts.get_node_text(node, rule)
+              table.insert(unique_ids, id_name)
+              table.insert(unique_ids_rule_set, rule)
+            elseif node:type() == "class_name" then
+              last_chid_node = node:type()
+              local class_name = ts.get_node_text(node, rule)
+              table.insert(unique_class, class_name)
+              table.insert(unique_class_rule_set, rule)
+            end
           end
         end
       end
-    end
 
-    -- local unique_list = u.unique_list(unique_class)
-    -- local unique_list, unique_block_list = u.unique_list_with_sync(unique_class, unique_class_rule_set)
-    local unique_list, unique_block_list = unique_class, unique_class_rule_set
-    for _, class in ipairs(unique_list) do
-      table.insert(classes, {
-        label = class,
-        kind = cmp.lsp.CompletionItemKind.Enum,
-        menu = file_name,
-        documentation = {
-          kind = 'markdown',
-          value = table.concat({
-            '```' .. 'css',
-            deindent(unique_block_list[_]),
-            '```'
-          }, '\n'),
-        }
-      })
-    end
-    cb(classes)
+      -- local unique_list = u.unique_list(unique_class)
+      -- local unique_list, unique_block_list = u.unique_list_with_sync(unique_class, unique_class_rule_set)
+      local unique_list, unique_block_list = unique_class, unique_class_rule_set
+      for _, class in ipairs(unique_list) do
+        table.insert(classes, {
+          label = class,
+          kind = cmp.lsp.CompletionItemKind.Enum,
+          menu = file_name,
+          documentation = {
+            kind = 'markdown',
+            value = table.concat({
+              '```' .. 'css',
+              deindent(unique_block_list[_]),
+              '```'
+            }, '\n'),
+          }
+        })
+      end
+      -- local unique_ids_list = u.unique_list(unique_ids)
+      -- unique_list, unique_block_list = u.unique_list_with_sync(unique_ids, unique_ids_rule_set)
+      unique_list, unique_block_list = unique_ids, unique_ids_rule_set
+      for _, id in ipairs(unique_list) do
+        table.insert(ids, {
+          label = id,
+          kind = cmp.lsp.CompletionItemKind.Enum,
+          menu = file_name,
+          documentation = {
+            kind = 'markdown',
+            value = table.concat({
+              '```' .. 'css',
+              deindent(unique_block_list[_]),
+              '```'
+            }, '\n'),
+          }
+        })
+      end
+      cb(classes, ids)
+    end)
   end)
 end, 2)
 
