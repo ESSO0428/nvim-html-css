@@ -224,7 +224,6 @@ function source:update_completion_data(group_type)
           self.remote_style_sheets = vim.deepcopy(current_remote_style_sheets)
 
           -- process each remote style sheet
-          local tasks = {}
           for _, url in ipairs(current_remote_style_sheets) do
             a.util.scheduler()
             r.init(url, function(classes, ids)
