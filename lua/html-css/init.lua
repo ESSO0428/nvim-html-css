@@ -137,6 +137,26 @@ source.new = function()
   return self
 end
 
+local function add_items(self, buffer_id, item)
+  -- Ensure that the items table of the buffer exists
+  if not self.items[buffer_id] then
+    self.items[buffer_id] = {}
+  end
+  self.items[buffer_id] = self.items[buffer_id] or {}
+  -- Add items to the items of the specified buffer
+  table.insert(self.items[buffer_id], item)
+end
+
+local function add_ids(self, buffer_id, id)
+  -- Ensure that the ids table of the buffer exists
+  if not self.ids[buffer_id] then
+    self.ids[buffer_id] = {}
+  end
+  self.ids[buffer_id] = self.ids[buffer_id] or {}
+  -- Add items to the ids of the specified buffer
+  table.insert(self.ids[buffer_id], id)
+end
+
 local function check_update_completion(self)
   if self.update_done == 'done' then
     return
@@ -182,19 +202,21 @@ function source:update_completion_data(group_type)
         -- handle embedded styles
         e.read_html_files(function(classes, ids, links)
           for _, class in ipairs(classes) do
-            table.insert(self.items, class)
+            -- table.insert(self.items, class)
+            add_items(self, self.last_html_buffer, class)
           end
           for _, id in ipairs(ids) do
-            table.insert(self.ids, id)
+            -- table.insert(self.ids, id)
+            add_ids(self, self.last_html_buffer, id)
           end
           self.style_sheets = mrgtbls(self.style_sheets, links)
           self.style_sheets = u.unique_list(self.style_sheets)
+          self.embedded = 'done'
+          check_update_completion(self)
         end)
-        vim.g.html_css_links = vim.inspect(self.style_sheets)
-        self.embedded = 'done'
-        check_update_completion(self)
       end)
 
+      local buffer_id = self.last_html_buffer
       -- Remote css reading
       a.run(function()
         -- Separate remote style sheet URLs
@@ -206,16 +228,24 @@ function source:update_completion_data(group_type)
         if compare_tables(current_remote_style_sheets, self.remote_style_sheets) then
           -- use cached classes and ids to update completion items
           a.util.scheduler()
-          for _, class in ipairs(self.remote_classes) do
-            if not vim.tbl_contains(self.items, class) then
-              table.insert(self.items, class)
+          local process_classes_and_ids = function()
+            for _, class in ipairs(self.remote_classes) do
+              if not vim.tbl_contains(self.items, class) then
+                -- table.insert(self.items, class)
+                add_items(self, buffer_id, class)
+              end
             end
-          end
-          for _, id in ipairs(self.remote_ids) do
-            if not vim.tbl_contains(self.ids, id) then
-              table.insert(self.ids, id)
+            for _, id in ipairs(self.remote_ids) do
+              if not vim.tbl_contains(self.ids, id) then
+                -- table.insert(self.ids, id)
+                add_ids(self, buffer_id, id)
+              end
             end
+            self.remote = 'done'
+            self.remote_item_write = 'done'
+            check_update_completion(self)
           end
+          a.wrap(process_classes_and_ids, 0)()
         else
           -- clear previous data
           self.remote_classes = {}
@@ -229,19 +259,20 @@ function source:update_completion_data(group_type)
             r.init(url, function(classes, ids)
               for _, class in ipairs(classes) do
                 table.insert(self.remote_classes, class)
-                table.insert(self.items, class)
+                -- table.insert(self.items, class)
+                add_items(self, buffer_id, class)
               end
               for _, id in ipairs(ids) do
                 table.insert(self.remote_ids, id)
-                table.insert(self.ids, id)
+                -- table.insert(self.ids, id)
+                add_ids(self, buffer_id, id)
               end
+              self.remote = 'done'
+              self.remote_item_write = 'done'
+              check_update_completion(self)
             end)
           end
         end
-
-        self.remote = 'done'
-        self.remote_item_write = 'done'
-        check_update_completion(self)
       end)
 
       -- Local css reading
@@ -251,14 +282,15 @@ function source:update_completion_data(group_type)
         l.read_local_files(self.style_sheets, function(classes, ids)
           for _, class in ipairs(classes) do
             table.insert(self.items, class)
+            add_items(self, buffer_id, class)
           end
           for _, id in ipairs(ids) do
             table.insert(self.ids, id)
+            add_ids(self, buffer_id, id)
           end
+          self.local_file = 'done'
+          check_update_completion(self)
         end)
-
-        self.local_file = 'done'
-        check_update_completion(self)
       end)
     end, 2500)
   end
@@ -266,10 +298,13 @@ end
 
 function source:complete(_, callback)
   if self.update_done == 'done' then
+    local buffer_id = vim.api.nvim_get_current_buf()
     if self.current_selector == "class" then
-      callback({ items = self.items, isComplete = false })
+      -- callback({ items = self.items, isComplete = false })
+      callback({ items = self.items[buffer_id], isComplete = false })
     elseif self.current_selector == "id" then
-      callback({ items = self.ids, isComplete = false })
+      -- callback({ items = self.ids, isComplete = false })
+      callback({ items = self.ids[buffer_id], isComplete = false })
     end
   end
 end
