@@ -247,7 +247,8 @@ local function check_files_modified(self, current_files)
       if not self.local_css_file_mod_times[filepath] or self.local_css_file_mod_times[filepath] ~= mod_time then
         -- The file has been modified and needs to be re-parsed
         table.insert(modified_files, filepath)
-        self.local_css_file_mod_times[filepath] = mod_time -- 更新最后修改时间
+        -- Update the last modified time
+        self.local_css_file_mod_times[filepath] = mod_time
       else
         -- The file has not been modified and the cached data can be used
         table.insert(unmodified_files, filepath)
