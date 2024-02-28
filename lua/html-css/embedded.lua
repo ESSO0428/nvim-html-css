@@ -147,14 +147,15 @@ end
 
 local function read_file(file)
   local fd, err = io.open(file, "r")
-  if not fd then return nil, err end -- 如果打开文件失败，返回nil和错误信息
-
-  local data = fd:read("*a")         -- 尝试读取文件内容
+  -- If failed to open file, return nil and error message
+  if not fd then return nil, err end
+  -- Try to read the file content
+  local data = fd:read("*a")
   fd:close()
   return data
 end
 
--- TODO change name of the function to something better
+-- TODO: change name of the function to something better
 M.read_html_files = a.wrap(function(cb)
   -- clean tables to avoid duplications
   links = {}
@@ -286,6 +287,7 @@ M.read_html_files = a.wrap(function(cb)
       label = class,
       kind = cmp.lsp.CompletionItemKind.Enum,
       menu = file_name,
+      file_path = file,
       documentation = {
         kind = 'markdown',
         value = table.concat({
@@ -307,6 +309,7 @@ M.read_html_files = a.wrap(function(cb)
       label = id,
       kind = cmp.lsp.CompletionItemKind.Enum,
       menu = file_name,
+      file_path = file,
       documentation = {
         kind = 'markdown',
         value = table.concat({
