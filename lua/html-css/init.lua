@@ -1,7 +1,7 @@
 local source = {}
 local config = require("cmp.config")
 local a = require("plenary.async")
-local Job = require("plenary.job")
+local j = require("plenary.job")
 local r = require("html-css.remote")
 local l = require("html-css.local")
 local e = require("html-css.embedded")
@@ -42,11 +42,16 @@ source.new = function()
   self.source_name = "html-css"
   self.isRemote = "^https?://"
   self.remote_classes = {}
+  self.local_classes = {}
   self.remote_ids = {}
+  self.local_ids = {}
   self.items = {}
   self.ids = {}
   self.href_links = {}
   self.after_inert_before_update = false
+
+  self.cached_local_css_data = {}
+  self.local_css_file_mod_times = {}
 
   self.embedded = ''
   self.remote = ''
@@ -60,6 +65,7 @@ source.new = function()
   self.file_extensions = self.option.file_extensions or {}
   self.style_sheets = self.option.style_sheets or {}
   self.remote_style_sheets = {}
+  self.local_style_sheets = {}
   self.enable_on = self.option.enable_on or {}
 
   self.last_html_buffer = ''
@@ -143,8 +149,27 @@ local function add_items(self, buffer_id, item)
     self.items[buffer_id] = {}
   end
   self.items[buffer_id] = self.items[buffer_id] or {}
-  -- Add items to the items of the specified buffer
-  table.insert(self.items[buffer_id], item)
+  -- -- Add items to the items of the specified buffer
+  -- table.insert(self.items[buffer_id], item)
+
+  -- Use label as unique identifier
+  local label = item.label
+  local file_path = item.file_path
+  local documentation = item.documentation
+
+  -- Check if the item already exists
+  local item_exists = false
+  for _, existing_item in ipairs(self.items[buffer_id]) do
+    if existing_item.label == label and existing_item.file_path == file_path and existing_item.documentation == documentation then
+      item_exists = true
+      break
+    end
+  end
+
+  -- If the item does not exist, add it to the table
+  if not item_exists then
+    table.insert(self.items[buffer_id], item)
+  end
 end
 
 local function add_ids(self, buffer_id, id)
@@ -153,8 +178,97 @@ local function add_ids(self, buffer_id, id)
     self.ids[buffer_id] = {}
   end
   self.ids[buffer_id] = self.ids[buffer_id] or {}
-  -- Add items to the ids of the specified buffer
-  table.insert(self.ids[buffer_id], id)
+  -- -- Add items to the ids of the specified buffer
+  -- table.insert(self.ids[buffer_id], id)
+  -- Use label as unique identifier
+  local label = id.label
+  local file_path = id.file_path
+  local documentation = id.documentation
+
+  -- Check if the item already exists
+  local item_exists = false
+  for _, existing_item in ipairs(self.ids[buffer_id]) do
+    if existing_item.label == label and existing_item.file_path == file_path and existing_item.documentation == documentation then
+      item_exists = true
+      break
+    end
+  end
+
+  -- If the item does not exist, add it to the table
+  if not item_exists then
+    table.insert(self.ids[buffer_id], id)
+  end
+end
+
+local function fd_hrefs(hrefs)
+  local files = {}
+  for _, href in ipairs(hrefs) do
+    local status, err = pcall(function()
+      j:new({
+        command = "fd",
+        args = { ".", href, "--exclude", "node_modules" },
+        on_stdout = function(_, data)
+          table.insert(files, data)
+        end,
+        timeout = 1000
+      }):sync()
+    end)
+    if not status then
+      print("Error executing fd command:", err)
+    end
+    -- use ** pattern search
+    if href:sub(1, 1) == "/" then
+      local status, err = pcall(function()
+        j:new({
+          command = "fd",
+          args = { "-p", "-g", "**" .. href },
+          on_stdout = function(_, data)
+            table.insert(files, data)
+          end,
+          timeout = 1000
+        }):sync()
+      end)
+      if not status then
+        print("Error executing fd command:", err)
+      end
+    end
+  end
+  return files
+end
+
+local function check_files_modified(self, current_files)
+  local modified_files = {}
+  local unmodified_files = {}
+
+  for _, filepath in ipairs(current_files) do
+    local stat = vim.loop.fs_stat(filepath)
+    if stat then
+      local mod_time = stat.mtime.sec
+      if not self.local_css_file_mod_times[filepath] or self.local_css_file_mod_times[filepath] ~= mod_time then
+        -- The file has been modified and needs to be re-parsed
+        table.insert(modified_files, filepath)
+        self.local_css_file_mod_times[filepath] = mod_time -- 更新最后修改时间
+      else
+        -- The file has not been modified and the cached data can be used
+        table.insert(unmodified_files, filepath)
+      end
+    end
+  end
+
+  return modified_files, unmodified_files
+end
+
+local function safe_update_catch_data(data, file_path, target, value)
+  if not data[file_path] then
+    data[file_path] = {
+      ['items'] = {},
+      ['ids'] = {}
+    }
+  end
+  if target == 'items' or target == 'ids' then
+    table.insert(data[file_path][target], value)
+  end
+  return data
 end
 
 local function check_update_completion(self)
@@ -229,18 +343,27 @@ function source:update_completion_data(group_type)
           -- use cached classes and ids to update completion items
           a.util.scheduler()
           local process_classes_and_ids = function()
-            for _, class in ipairs(self.remote_classes) do
-              if not vim.tbl_contains(self.items, class) then
-                -- table.insert(self.items, class)
-                add_items(self, buffer_id, class)
+            if not self.items[buffer_id] then
+              self.items[buffer_id] = self.remote_classes
+            else
+              for _, class in ipairs(self.remote_classes) do
+                if not vim.tbl_contains(self.items, class) then
+                  -- table.insert(self.items, class)
+                  add_items(self, buffer_id, class)
+                end
               end
             end
-            for _, id in ipairs(self.remote_ids) do
-              if not vim.tbl_contains(self.ids, id) then
-                -- table.insert(self.ids, id)
-                add_ids(self, buffer_id, id)
+            if not self.items[buffer_id] then
+              self.ids[buffer_id] = self.remote_ids
+            else
+              for _, id in ipairs(self.remote_ids) do
+                if not vim.tbl_contains(self.ids, id) then
+                  -- table.insert(self.ids, id)
+                  add_ids(self, buffer_id, id)
+                end
               end
             end
+
             self.remote = 'done'
             self.remote_item_write = 'done'
             check_update_completion(self)
@@ -279,18 +402,65 @@ function source:update_completion_data(group_type)
       a.run(function()
         -- Yield control to other async tasks
         a.util.scheduler()
-        l.read_local_files(self.style_sheets, function(classes, ids)
-          for _, class in ipairs(classes) do
-            table.insert(self.items, class)
+        local current_local_style_sheets = vim.tbl_filter(function(url)
+          return not url:match(self.isRemote)
+        end, self.style_sheets)
+
+        current_local_style_sheets = fd_hrefs(current_local_style_sheets)
+
+        local modified_files, unmodified_files = check_files_modified(self, current_local_style_sheets)
+        -- if compare_tables(current_local_style_sheets, self.local_style_sheets) and check_files_modified(self, current_local_style_sheets) then
+        if compare_tables(current_local_style_sheets, self.local_style_sheets) and not next(modified_files) then
+          local local_classes = self.local_classes
+          local local_ids = self.local_ids
+          for _, class in ipairs(local_classes) do
             add_items(self, buffer_id, class)
           end
-          for _, id in ipairs(ids) do
-            table.insert(self.ids, id)
+          for _, id in ipairs(local_ids) do
             add_ids(self, buffer_id, id)
           end
           self.local_file = 'done'
           check_update_completion(self)
-        end)
+        else
+          -- clear previous data
+          self.local_classes = {}
+          self.local_ids = {}
+          -- update cached remote style sheets
+          self.local_style_sheets = vim.deepcopy(current_local_style_sheets)
+
+          for _, file_path in ipairs(unmodified_files) do
+            local data = self.cached_local_css_data[file_path]
+            for _, class in ipairs(data['items']) do
+              table.insert(self.local_classes, class)
+              add_items(self, buffer_id, class)
+            end
+            for _, id in ipairs(data['ids']) do
+              table.insert(self.local_ids, id)
+              add_ids(self, buffer_id, id)
+            end
+          end
+          -- l.read_local_files(current_local_style_sheets, function(classes, ids)
+          l.read_local_files(modified_files, function(classes, ids)
+            local current_local_catch_data = {}
+            for _, class in ipairs(classes) do
+              -- table.insert(self.items, class)
+              current_local_catch_data = safe_update_catch_data(current_local_catch_data, class.file_path, 'items', class)
+              table.insert(self.local_classes, class)
+              add_items(self, buffer_id, class)
+            end
+            for _, id in ipairs(ids) do
+              -- table.insert(self.ids, id)
+              current_local_catch_data = safe_update_catch_data(current_local_catch_data, id.file_path, 'ids', id)
+              table.insert(self.local_ids, id)
+              add_ids(self, buffer_id, id)
+            end
+            for file_path, data in pairs(current_local_catch_data) do
+              self.cached_local_css_data[file_path] = data
+            end
+            self.local_file = 'done'
+            check_update_completion(self)
+          end)
+        end
       end)
     end, 2500)
   end
