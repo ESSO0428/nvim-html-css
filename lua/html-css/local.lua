@@ -65,41 +65,7 @@ end
 
 ---@async
 M.read_local_files = a.wrap(function(hrefs, cb)
-  local files = {}
-  -- print(vim.inspect(hrefs))
-  for _, href in ipairs(hrefs) do
-    if not href:match("^http") then
-      local status, err = pcall(function()
-        j:new({
-          command = "fd",
-          args = { ".", href, "--exclude", "node_modules" },
-          on_stdout = function(_, data)
-            table.insert(files, data)
-          end,
-          timeout = 1000
-        }):sync()
-      end)
-      if not status then
-        print("Error executing fd command:", err)
-      end
-      -- use ** pattern search
-      if href:sub(1, 1) == "/" then
-        local status, err = pcall(function()
-          j:new({
-            command = "fd",
-            args = { "-p", "-g", "**" .. href },
-            on_stdout = function(_, data)
-              table.insert(files, data)
-            end,
-            timeout = 1000
-          }):sync()
-        end)
-        if not status then
-          print("Error executing fd command:", err)
-        end
-      end
-    end
-  end
+  local files = hrefs
   if #files == 0 then
     cb({}, {})
   else
@@ -161,6 +127,7 @@ M.read_local_files = a.wrap(function(hrefs, cb)
             label = class,
             kind = cmp.lsp.CompletionItemKind.Enum,
             menu = file_name,
+            file_path = file,
             documentation = {
               kind = 'markdown',
               value = table.concat({
@@ -179,6 +146,7 @@ M.read_local_files = a.wrap(function(hrefs, cb)
             label = id,
             kind = cmp.lsp.CompletionItemKind.Enum,
             menu = file_name,
+            file_path = file,
             documentation = {
               kind = 'markdown',
               value = table.concat({
