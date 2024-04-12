@@ -200,28 +200,47 @@ local function add_ids(self, buffer_id, id)
   end
 end
 
+local function normalize_path(path)
+  local parts = {}
+  local path_sep = '/'
+
+  -- split path
+  for part in string.gmatch(path, "[^" .. path_sep .. "]+") do
+    if part == ".." then
+      -- If it is "..", remove the last valid path part
+      table.remove(parts)
+    elseif part ~= "." then
+      -- if it is not ".", add it to the path list
+      table.insert(parts, part)
+    end
+  end
+  return path_sep .. table.concat(parts, path_sep)
+end
+
+local function file_exists(file_path)
+  local current_file_path = vim.fn.expand('%:p:h')
+  local file_abs_path = current_file_path .. '/' .. file_path
+  file_abs_path = normalize_path(file_abs_path)
+  local fd = io.open(file_abs_path, "r")
+  if fd then
+    fd:close()
+    return file_abs_path
+  else
+    return false
+  end
+end
+
 local function fd_hrefs(hrefs)
   local files = {}
   for _, href in ipairs(hrefs) do
-    local status, err = pcall(function()
-      j:new({
-        command = "fd",
-        args = { ".", href, "--exclude", "node_modules" },
-        on_stdout = function(_, data)
-          table.insert(files, data)
-        end,
-        timeout = 1000
-      }):sync()
-    end)
-    if not status then
-      print("Error executing fd command:", err)
-    end
-    -- use ** pattern search
-    if href:sub(1, 1) == "/" then
+    local file_abs_path = file_exists(href)
+    if file_abs_path then
+      table.insert(files, file_abs_path)
+    else
       local status, err = pcall(function()
         j:new({
           command = "fd",
-          args = { "-p", "-g", "**" .. href },
+          args = { ".", href, "--exclude", "node_modules" },
           on_stdout = function(_, data)
             table.insert(files, data)
           end,
@@ -230,6 +249,22 @@ local function fd_hrefs(hrefs)
       end)
       if not status then
         print("Error executing fd command:", err)
+      end
+      -- use ** pattern search
+      if href:sub(1, 1) == "/" then
+        local status, err = pcall(function()
+          j:new({
+            command = "fd",
+            args = { "-p", "-g", "**" .. href },
+            on_stdout = function(_, data)
+              table.insert(files, data)
+            end,
+            timeout = 1000
+          }):sync()
+        end)
+        if not status then
+          print("Error executing fd command:", err)
+        end
       end
     end
   end
