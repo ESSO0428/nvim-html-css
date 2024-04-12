@@ -255,7 +255,7 @@ local function fd_hrefs(hrefs)
         local status, err = pcall(function()
           j:new({
             command = "fd",
-            args = { "-p", "-g", "**" .. href },
+            args = { "-p", "-g", "**" .. href, "--exclude", "node_modules" },
             on_stdout = function(_, data)
               table.insert(files, data)
             end,
