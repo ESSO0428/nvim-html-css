@@ -56,6 +56,7 @@ local link_qs = [[
 
 local function get_extends_template(data, htmldjango_extends_qs)
   -- Traverse the matched {% extends 'template.html' %}
+  local tb_extend_links = {}
   local last_tag_name = ''
   -- use below query when current filetype is htmldjango
   if vim.bo.filetype == "htmldjango" then
@@ -63,8 +64,7 @@ local function get_extends_template(data, htmldjango_extends_qs)
     local tree = parser:parse()[1]
     local root = tree:root()
     local query = ts.query.parse("htmldjango", htmldjango_extends_qs)
-    local tb_extend_links = {}
-
+		
     for id, node in query:iter_captures(root, data, 0, -1) do
       if node:type() == "tag_name" then
         local tag_name = ts.get_node_text(node, data)
