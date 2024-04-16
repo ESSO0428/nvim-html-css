@@ -466,13 +466,15 @@ function source:update_completion_data(group_type)
 
           for _, file_path in ipairs(unmodified_files) do
             local data = self.cached_local_css_data[file_path]
-            for _, class in ipairs(data['items']) do
-              table.insert(self.local_classes, class)
-              add_items(self, buffer_id, class)
-            end
-            for _, id in ipairs(data['ids']) do
-              table.insert(self.local_ids, id)
-              add_ids(self, buffer_id, id)
+            if data ~= nil then
+              for _, class in ipairs(data['items']) do
+                table.insert(self.local_classes, class)
+                add_items(self, buffer_id, class)
+              end
+              for _, id in ipairs(data['ids']) do
+                table.insert(self.local_ids, id)
+                add_ids(self, buffer_id, id)
+              end
             end
           end
           -- l.read_local_files(current_local_style_sheets, function(classes, ids)
