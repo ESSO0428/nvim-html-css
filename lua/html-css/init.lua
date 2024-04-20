@@ -67,6 +67,7 @@ source.new = function()
   self.remote_style_sheets = {}
   self.local_style_sheets = {}
   self.enable_on = self.option.enable_on or {}
+  self.enable_file_patterns = self.option.enable_file_patterns or { "*.html" }
 
   self.last_html_buffer = ''
   -- self.href_links = h.get_hrefs()
@@ -78,7 +79,7 @@ source.new = function()
   local augroup = vim.api.nvim_create_augroup('HTMLCSSCompletionForceUpdate', { clear = true })
   vim.api.nvim_create_autocmd({ 'WinEnter' }, {
     group = augroup,
-    pattern = { '*.html' },
+    pattern = self.enable_file_patterns,
     callback = function()
       if self.last_html_buffer == vim.api.nvim_get_current_buf() then
         return
@@ -97,7 +98,7 @@ source.new = function()
   local augroup = vim.api.nvim_create_augroup('HTMLCSSCompletionTextChange', { clear = true })
   vim.api.nvim_create_autocmd({ 'InsertEnter', 'InsertLeave' }, {
     group = augroup,
-    pattern = { '*.html' },
+    pattern = self.enable_file_patterns,
     callback = function()
       if self.update_done == '' or self.update_done == 'done' then
         local inside_quotes = ts.get_node({ bfnr = 0, lang = 'html' })
@@ -120,7 +121,7 @@ source.new = function()
   local augroup = vim.api.nvim_create_augroup('HTMLCSSCompletionLinkChange', { clear = true })
   vim.api.nvim_create_autocmd({ 'TextChanged' }, {
     group = augroup,
-    pattern = { '*.html' },
+    pattern = self.enable_file_patterns,
     callback = function()
       -- check link href wheather it is changed
       if not compare_tables(self.href_links, h.get_hrefs()) then
@@ -133,7 +134,7 @@ source.new = function()
   local augroup = vim.api.nvim_create_augroup('HTMLCSSCompletionConditionUpdate', { clear = true })
   vim.api.nvim_create_autocmd({ 'CursorHold' }, {
     group = augroup,
-    pattern = { '*.html' },
+    pattern = self.enable_file_patterns,
     callback = function()
       if self.update_done == '' or self.update_done == 'done' then
         self:update_completion_data('condition')
