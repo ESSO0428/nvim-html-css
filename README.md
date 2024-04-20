@@ -63,6 +63,8 @@ option = {
       "htmldjango",
       "html"
     },                                           -- set the file types you want the plugin to work on
+    enable_file_patterns = { "*.html" }, -- set the file patterns you want the plugin to work on file patterns (default is  *.html)
+    -- enable_file_patterns = { "*.html", ".php" }
     file_extensions = { "css", "sass", "less" }, -- set the local filetypes from which you want to derive classes
     style_sheets = {
         -- example of remote styles, only css no js for now
