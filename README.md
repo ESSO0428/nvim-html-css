@@ -61,7 +61,8 @@ return require("lazy").setup({
 option = {
     enable_on = {
       "htmldjango",
-      "html"
+      "html",
+      "php"
     },                                           -- set the file types you want the plugin to work on
     enable_file_patterns = { "*.html" }, -- set the file patterns you want the plugin to work on file patterns (default is  *.html)
     -- enable_file_patterns = { "*.html", "*.php" }
