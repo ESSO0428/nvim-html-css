@@ -324,7 +324,7 @@ function source:update_completion_data(group_type)
     -- Reset flag immediately to prevent multiple triggers
     print("Load html-css completion data ...")
     vim.defer_fn(function()
-      if not vim.tbl_contains(self.option.enable_on, vim.bo.filetype) then
+      if not vim.tbl_contains(self.option.enable_on or {}, vim.bo.filetype or "") then
         self.update_done = 'done'
         print("Load html-css completion stop!")
         return
