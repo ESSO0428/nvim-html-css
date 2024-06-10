@@ -527,7 +527,7 @@ function source:is_available()
     return false
   end
 
-  if not vim.tbl_contains(self.option.enable_on, vim.bo.filetype) then
+  if not vim.tbl_contains(self.option.enable_on or {}, vim.bo.filetype or "") then
     return false
   end
 
